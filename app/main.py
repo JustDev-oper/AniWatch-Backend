@@ -1,11 +1,8 @@
 from fastapi import FastAPI
+from app.api.v1.anime import router
+from app.database.session import Base, engine
 
-app: FastAPI = FastAPI(title="AniWatch Backend", version="1.0.0")
+app: FastAPI = FastAPI(title="AniWatch Backend")
 
-@app.get("/")
-async def root():
-    return {"message": "Welcome to AniWatch Backend"}
-
-# Include API routes
-# from app.api import router as api_router
-# app.include_router(api_router, prefix="/api/v1")
+Base.metadata.create_all(bind=engine)
+app.include_router(router, prefix="/api/v1")
