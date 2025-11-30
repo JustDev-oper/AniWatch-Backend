@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.core.logging_config import logger
+from app.core.security import get_api_key
 from app.database.session import get_db
 
 from datetime import datetime, timezone, timedelta
@@ -12,7 +13,9 @@ now_moscow = datetime.now(moscow_offset)
 
 router = APIRouter(
     prefix="/anime",
-    tags=["Anime"]
+    tags=["Anime"],
+    # Защищаем все роуты внутри этого APIRouter — проверьте API_KEY в заголовке X-API-KEY
+    dependencies=[Depends(get_api_key)]
 )
 
 
