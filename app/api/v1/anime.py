@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from app import models, schemas
+from app.utils.storage import save_image
 from app.core.logging_config import logger
 from app.core.security import get_api_key
 from app.database.session import get_db
@@ -62,24 +63,43 @@ async def get_anime(
              status_code=status.HTTP_201_CREATED)
 async def create_anime(
         request: Request,
-        anime: schemas.anime.AnimeCreate,
+        title: str = Form(...),
+        subtitle: str | None = Form(None),
+        description: str = Form(...),
+        video_url: str = Form(...),
+        preview_image: UploadFile | None = File(None),
+        preview_image_url: str | None = Form(None),
         db: Session = Depends(get_db)
 ):
-    logger.info(
-        f"[POST /anime] Create request from IP: {request.client.host}, Title: {anime.title}")
+    logger.info(f"[POST /anime] Create request from IP: {request.client.host}, Title: {title}")
     try:
+        # decide where to get preview_image from: file > url > error
+        saved_preview = None
+        if preview_image is not None:
+            content = await preview_image.read()
+            saved_preview = await save_image(content, preview_image.filename or 'preview.jpg')
+        elif preview_image_url:
+            saved_preview = preview_image_url
+
+        if not saved_preview:
+            raise HTTPException(status_code=400, detail='preview_image (file or url) is required')
 
         db_anime = models.anime.Anime(
-            **anime.model_dump(),
+            title=title,
+            subtitle=subtitle,
+            description=description,
+            preview_image=saved_preview,
+            video_url=video_url,
             created_at=now_moscow,
             updated_at=now_moscow
         )
         db.add(db_anime)
         db.commit()
         db.refresh(db_anime)
-        logger.info(
-            f"[POST /anime] Successfully created anime: {db_anime.title} (ID: {db_anime.id})")
+        logger.info(f"[POST /anime] Successfully created anime: {db_anime.title} (ID: {db_anime.id})")
         return db_anime
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[POST /anime] Failed to create anime: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -87,10 +107,15 @@ async def create_anime(
 
 @router.put("/{anime_id}", response_model=schemas.anime.Anime)
 async def update_anime(
-        request: Request,
-        anime_id: int,
-        anime: schemas.anime.AnimeUpdate,
-        db: Session = Depends(get_db)
+    request: Request,
+    anime_id: int,
+    title: str | None = Form(None),
+    subtitle: str | None = Form(None),
+    description: str | None = Form(None),
+    video_url: str | None = Form(None),
+    preview_image: UploadFile | None = File(None),
+    preview_image_url: str | None = Form(None),
+    db: Session = Depends(get_db)
 ):
     logger.info(
         f"[PUT /anime/{{anime_id}}] Update request for anime_id={anime_id} from IP: {request.client.host}")
@@ -104,7 +129,23 @@ async def update_anime(
         # Сохраняем старое название для лога
         old_title = db_anime.title
 
-        update_data = anime.model_dump(exclude_unset=True)
+        update_data: dict = {}
+        if title is not None:
+            update_data['title'] = title
+        if subtitle is not None:
+            update_data['subtitle'] = subtitle
+        if description is not None:
+            update_data['description'] = description
+        if video_url is not None:
+            update_data['video_url'] = video_url
+
+        # handle preview image if provided
+        if preview_image is not None:
+            content = await preview_image.read()
+            saved_preview = await save_image(content, preview_image.filename or 'preview.jpg')
+            update_data['preview_image'] = saved_preview
+        elif preview_image_url:
+            update_data['preview_image'] = preview_image_url
         if 'title' in update_data:
             existing_anime = db.query(models.anime.Anime).filter(
                 models.anime.Anime.title == update_data['title'],

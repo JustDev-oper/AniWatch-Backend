@@ -208,3 +208,7 @@ __marimo__/
 
 .idea
 /anime.db
+/telegram_bot/bot/__init__.py
+/telegram_bot/bot/config.py
+/telegram_bot/bot/main.py
+/telegram_bot/requirements.txt
