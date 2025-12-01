@@ -5,12 +5,12 @@ from pydantic import BaseModel, HttpUrl
 class Anime(BaseModel):
     id: int
     title: str
-    subtitle: str | None = None
     description: str
     preview_image: HttpUrl
     video_url: HttpUrl
     created_at: datetime
     updated_at: datetime
+    subtitle: str | None = None
 
     class Config:
         from_attributes = True
@@ -18,15 +18,15 @@ class Anime(BaseModel):
 
 class AnimeCreate(BaseModel):
     title: str
-    subtitle: str | None = None
     description: str
-    preview_image: HttpUrl
     video_url: HttpUrl
+    subtitle: str | None = None
+    preview_image: HttpUrl
 
 
 class AnimeUpdate(BaseModel):
     title: str | None = None
-    subtitle: str | None = None
     description: str | None = None
-    preview_image: HttpUrl | None = None
     video_url: HttpUrl | None = None
+    subtitle: str | None = None
+    preview_image: HttpUrl | None = None
